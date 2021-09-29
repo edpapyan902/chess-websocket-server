@@ -23,7 +23,6 @@ io.on("connection", (socket) => {
       console.log(result);
     socket.emit("available-players-received", {emails: result});
   });
-
   socket.on("new-challenge", (message) => {
       //console.log("new challenge: ", message);
       let sender = message.sender;
@@ -31,14 +30,21 @@ io.on("connection", (socket) => {
       io.to(recepientSocket).emit("new-challenge-received", {sender});
   });
   socket.on("challenge-accepted", (message)=>{
-    //TODO
-    console.log(message.responder ,"has accepted the challenge from ", message.challengeSender);
+    console.log(message.responder ,"has accepted the challenge from ", message.challengeSender, "gameId: ", message.gameId);
+    let challengeSender = emailToSocketMap.get(message.challengeSender);
+    let otherPlayerColor = (message.playerColor === "white") ? "black" : "white";
+    io.to(challengeSender).emit("new-game-created", { gameId: message.gameId, playerColor: otherPlayerColor});
+    let otherPlayerSocketId = emailToSocketMap.get(message.challengeSender);
+    if(message.playerColor === "white")
+      ongoingGames.set(message.gameId, {white: socket.id, black: otherPlayerSocketId});
+    else
+      ongoingGames.set(message.gameId, {white: otherPlayerSocketId, black: socket.id});
   });
   socket.on("challenge-rejected", (message)=>{
-    //TODO
     console.log(message.responder ,"has rejected the challenge from ", message.challengeSender);
+    let challengeSender = emailToSocketMap.get(message.challengeSender);
+    io.to(challengeSender).emit("new-game-request-rejected", { responder: message.responder});
 });
-
   socket.on("disconnect", ()=>{
       console.log("connection closed");
       //TODO: remove the email from the map
@@ -51,30 +57,9 @@ io.on("connection", (socket) => {
       emailToSocketMap.delete(emailToRemove);
       let result = Array.from(emailToSocketMap.keys());
       socket.broadcast.emit("available-players-received", {emails: result});
-  })
-  socket.on("create-new-or-join-existing-game", (message) => {
-    //console.log(message);
-    let playerColor = "";
-    if(ongoingGames.has(message.gameId)){
-        let game = ongoingGames.get(message.gameId);
-        if(game.hasOwnProperty("black") && !(game.hasOwnProperty("white"))){
-            ongoingGames.set(message.gameId, {...game, white: socket.id});
-            playerColor = "white";
-        } 
-        if(game.hasOwnProperty("white") && !(game.hasOwnProperty("black"))){
-            ongoingGames.set(message.gameId, {...game, black: socket.id});
-            playerColor = "black";
-        } 
-    }else{
-        ongoingGames.set(message.gameId, {"white": socket.id});
-        playerColor = "white";
-    }
-    //console.log(ongoingGames);
-    socket.emit("playerColorSet", {playerColor});
-});
-
-socket.on("movedPiece", (message)=>{
-    //console.log("movedPiece event occured");
+  });
+  socket.on("movedPiece", (message)=>{
+    console.log("movedPiece event occured");
     let boardState = message.boardState;
     let turn = message.turn;
     let game = ongoingGames.get(message.gameId);
@@ -83,5 +68,5 @@ socket.on("movedPiece", (message)=>{
     }else{
         io.to(game.white).emit("opponentMovedPiece", {boardState, turn});
     }
-});
+  });
 });
