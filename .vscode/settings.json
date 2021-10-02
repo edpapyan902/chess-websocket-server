@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/2dec9e34-3ead-4571-ad5c-000a0589a9ba/resourceGroups/chess-app/providers/Microsoft.Web/sites/chess-app-server",
+    "appService.deploySubpath": "."
+}

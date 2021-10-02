@@ -1,13 +1,18 @@
+const express = require("express");
+const { createServer } = require("http");
 const { Server } = require("socket.io");
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+  origin: "*",
+  methods: ["GET", "POST"]
+}
+});
 //key: gameId, value: {white:socket.id, black:socket.id}
 let ongoingGames = new Map();
 let emailToSocketMap = new Map();
-const io = new Server(3001,{
-    cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"]
-  }
-});
+
 
 io.on("connection", (socket) => {
   //console.log(socket.id);
@@ -58,7 +63,7 @@ io.on("connection", (socket) => {
       let result = Array.from(emailToSocketMap.keys());
       socket.broadcast.emit("available-players-received", {emails: result});
   });
-  socket.on("movedPiece", (message)=>{
+  socket.on("movedPiece", (message) => {
     console.log("movedPiece event occured");
     let boardState = message.boardState;
     let turn = message.turn;
@@ -69,4 +74,25 @@ io.on("connection", (socket) => {
         io.to(game.white).emit("opponentMovedPiece", {boardState, turn});
     }
   });
+
+  socket.on("opponentPlayerUnderCheckMate", (message) => {
+    let game = ongoingGames.get(message.gameId);
+    if(message.playerColor === "white"){
+      io.to(game.white).emit("playerUnderCheckMate");
+    }else{
+      io.to(game.black).emit("playerUnderCheckMate");
+  }
+  });
+
+  socket.on("opponentPlayerUnderStaleMate", (message) => {
+    let game = ongoingGames.get(message.gameId);
+    if(message.playerColor === "white"){
+      io.to(game.white).emit("playerUnderStaleMate");
+    }else{
+      io.to(game.black).emit("playerUnderStaleMate");
+  }
+
+  });
 });
+
+httpServer.listen(process.env.PORT || 3001);
